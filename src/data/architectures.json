@@ -1,0 +1,108 @@
+{
+    "architectures": [
+        {
+            "id": 1,
+            "name": "Microservice Architecture",
+            "description": "A scalable microservice architecture using AWS services",
+            "image": "/arch-1.png",
+            "components": [
+                {
+                    "id": "cloudfront",
+                    "name": "Amazon CloudFront",
+                    "brief": "Global content delivery network (CDN) that caches and serves content from edge locations worldwide for low latency",
+                    "icon": "🌐",
+                    "role": "User Interface",
+                    "layer": "frontend"
+                },
+                {
+                    "id": "s3",
+                    "name": "Amazon S3",
+                    "brief": "Object storage service for static assets like images, CSS, JavaScript, and backups",
+                    "icon": "🪣",
+                    "role": "User Interface",
+                    "layer": "frontend"
+                },
+                {
+                    "id": "alb",
+                    "name": "Application Load Balancer",
+                    "brief": "Distributes incoming HTTP/HTTPS traffic across multiple targets (ECS tasks) for high availability",
+                    "icon": "⚖️",
+                    "role": "Compute Implementation",
+                    "layer": "compute"
+                },
+                {
+                    "id": "ecs",
+                    "name": "Amazon ECS",
+                    "brief": "Container orchestration service that runs and manages Docker containers at scale",
+                    "icon": "🐳",
+                    "role": "Compute Implementation",
+                    "layer": "compute"
+                },
+                {
+                    "id": "elasticache",
+                    "name": "Amazon ElastiCache",
+                    "brief": "In-memory caching service (Redis/Memcached) for fast data access and session storage",
+                    "icon": "⚡",
+                    "role": "Data Store",
+                    "layer": "data"
+                },
+                {
+                    "id": "aurora",
+                    "name": "Amazon Aurora",
+                    "brief": "MySQL and PostgreSQL-compatible relational database with auto-scaling and high availability",
+                    "icon": "💎",
+                    "role": "Data Store",
+                    "layer": "data"
+                },
+                {
+                    "id": "dynamodb",
+                    "name": "Amazon DynamoDB",
+                    "brief": "NoSQL database service for flexible schema and single-digit millisecond latency at any scale",
+                    "icon": "⚙️",
+                    "role": "Data Store",
+                    "layer": "data"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "name": "AWS Management Architecture",
+            "description": "Infrastructure automation with EC2, Systems Manager, and serverless Lambda",
+            "image": "/arch-2.png",
+            "components": [
+                {
+                    "id": "ec2-instances",
+                    "name": "Amazon EC2 Instances",
+                    "brief": "Virtual servers running applications with customizable compute, memory, and storage",
+                    "icon": "🖥️",
+                    "role": "Compute",
+                    "layer": "compute"
+                },
+                {
+                    "id": "systems-manager",
+                    "name": "AWS Systems Manager",
+                    "brief": "Centralized service for viewing and controlling AWS infrastructure, automating tasks and patching",
+                    "icon": "🔧",
+                    "role": "Management",
+                    "layer": "management"
+                },
+                {
+                    "id": "s3-arch2",
+                    "name": "Amazon S3",
+                    "brief": "Object storage for logs, documents, and automation scripts with unlimited scalability",
+                    "icon": "🪣",
+                    "role": "Storage",
+                    "layer": "storage"
+                },
+                {
+                    "id": "lambda",
+                    "name": "AWS Lambda",
+                    "brief": "Serverless compute that runs code in response to events without managing servers",
+                    "icon": "λ",
+                    "role": "Compute",
+                    "layer": "serverless"
+                }
+            ]
+        }
+    ]
+}

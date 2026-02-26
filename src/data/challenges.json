@@ -1,0 +1,179 @@
+{
+    "challenges": [
+        {
+            "id": 1,
+            "title": "The Cloud Whisperer",
+            "description": "Find someone wearing AWS merch or cloud-related swag",
+            "emoji": "☁️",
+            "difficulty": "easy"
+        },
+        {
+            "id": 2,
+            "title": "Debugger in Chief",
+            "description": "Connect with someone wearing glasses",
+            "emoji": "🤓",
+            "difficulty": "easy"
+        },
+        {
+            "id": 3,
+            "title": "Caffeine Dependency",
+            "description": "Find someone holding coffee or energy drink",
+            "emoji": "☕",
+            "difficulty": "easy"
+        },
+        {
+            "id": 4,
+            "title": "The Documentation Reader",
+            "description": "Meet someone with a laptop covered in stickers",
+            "emoji": "💻",
+            "difficulty": "easy"
+        },
+        {
+            "id": 5,
+            "title": "Lambda Legend",
+            "description": "Connect with someone who's used AWS Lambda (ask them!)",
+            "emoji": "⚡",
+            "difficulty": "medium"
+        },
+        {
+            "id": 6,
+            "title": "S3 Storage Guru",
+            "description": "Find someone who knows what S3 stands for",
+            "emoji": "🪣",
+            "difficulty": "easy"
+        },
+        {
+            "id": 7,
+            "title": "The Hoodie Hero",
+            "description": "Connect with someone wearing a hoodie",
+            "emoji": "🧥",
+            "difficulty": "easy"
+        },
+        {
+            "id": 8,
+            "title": "EC2 Enthusiast",
+            "description": "Meet someone who's deployed to EC2 before",
+            "emoji": "🖥️",
+            "difficulty": "medium"
+        },
+        {
+            "id": 9,
+            "title": "Dark Mode Devotee",
+            "description": "Find someone whose phone is in dark mode",
+            "emoji": "🌙",
+            "difficulty": "easy"
+        },
+        {
+            "id": 10,
+            "title": "The Backpack Brigade",
+            "description": "Connect with someone carrying a backpack",
+            "emoji": "🎒",
+            "difficulty": "easy"
+        },
+        {
+            "id": 11,
+            "title": "IAM the One",
+            "description": "Find someone who can explain IAM roles (good luck!)",
+            "emoji": "🔐",
+            "difficulty": "hard"
+        },
+        {
+            "id": 12,
+            "title": "Sneakerhead Status",
+            "description": "Connect with someone wearing sneakers",
+            "emoji": "👟",
+            "difficulty": "easy"
+        },
+        {
+            "id": 13,
+            "title": "The AWS Certified",
+            "description": "Meet someone with any AWS certification",
+            "emoji": "🏆",
+            "difficulty": "medium"
+        },
+        {
+            "id": 14,
+            "title": "Mobile Multitasker",
+            "description": "Find someone on their phone right now",
+            "emoji": "📱",
+            "difficulty": "easy"
+        },
+        {
+            "id": 15,
+            "title": "VPC Virtuoso",
+            "description": "Connect with someone who's configured a VPC",
+            "emoji": "🌐",
+            "difficulty": "medium"
+        },
+        {
+            "id": 16,
+            "title": "The Early Bird",
+            "description": "Meet someone who arrived early to the event",
+            "emoji": "🐦",
+            "difficulty": "easy"
+        },
+        {
+            "id": 17,
+            "title": "Docker Devotee",
+            "description": "Find someone wearing blue (like Docker!)",
+            "emoji": "🐳",
+            "difficulty": "easy"
+        },
+        {
+            "id": 18,
+            "title": "RDS Rockstar",
+            "description": "Connect with someone who knows what RDS is",
+            "emoji": "🗄️",
+            "difficulty": "medium"
+        },
+        {
+            "id": 19,
+            "title": "The Note Taker",
+            "description": "Find someone with a notebook or taking notes",
+            "emoji": "📝",
+            "difficulty": "easy"
+        },
+        {
+            "id": 20,
+            "title": "CloudWatch Watcher",
+            "description": "Meet someone who's set up CloudWatch alerts",
+            "emoji": "👁️",
+            "difficulty": "medium"
+        },
+        {
+            "id": 21,
+            "title": "The Thirsty One",
+            "description": "Connect with someone holding a water bottle",
+            "emoji": "💧",
+            "difficulty": "easy"
+        },
+        {
+            "id": 22,
+            "title": "Route 53 Navigator",
+            "description": "Find someone who's configured DNS on AWS",
+            "emoji": "🧭",
+            "difficulty": "medium"
+        },
+        {
+            "id": 23,
+            "title": "The Smiling Face",
+            "description": "Connect with someone who's smiling right now",
+            "emoji": "😊",
+            "difficulty": "easy"
+        },
+        {
+            "id": 24,
+            "title": "DynamoDB Dynamo",
+            "description": "Meet someone who's used NoSQL databases",
+            "emoji": "⚙️",
+            "difficulty": "medium"
+        },
+        {
+            "id": 25,
+            "title": "The Main Character",
+            "description": "Find someone who introduced themselves first",
+            "emoji": "✨",
+            "difficulty": "easy"
+        }
+    ]
+}
