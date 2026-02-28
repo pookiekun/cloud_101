@@ -52,52 +52,49 @@ export default function ProfileSetupPage() {
         setIsSubmitting(true)
 
         try {
+            // Refresh session first — ensures we have a fresh JWT for RLS
+            await supabase.auth.refreshSession()
+
             const connectionCode = generateConnectionCode(user.id)
 
             console.log('Creating profile for user:', user.id)
-            console.log('Connection code:', connectionCode)
 
-            // Create profile with timeout
-            const insertPromise = supabase
-                .from('profiles')
-                .insert({
-                    user_id: user.id,
-                    full_name: fullName.trim(),
-                    linkedin_url: linkedinUrl.trim(),
-                    connection_code: connectionCode,
-                })
-                .select()
-                .single()
-
-            // Add 10 second timeout
-            const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Request timeout - please check your connection')), 10000)
-            )
-
-            const { data, error } = await Promise.race([insertPromise, timeoutPromise]) as any
+            const { data, error } = await Promise.race([
+                supabase
+                    .from('profiles')
+                    .insert({
+                        user_id: user.id,
+                        full_name: fullName.trim(),
+                        linkedin_url: linkedinUrl.trim(),
+                        connection_code: connectionCode,
+                    })
+                    .select()
+                    .single(),
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('timeout')), 15000)
+                ),
+            ]) as any
 
             if (error) {
-                console.error('Profile creation error:', error)
-                console.error('Error details:', JSON.stringify(error, null, 2))
+                // Log the full error so we can diagnose via console
+                console.error('Profile creation error:', error.code, error.message, error.details)
 
                 if (error.code === '23505') {
-                    toast.error('Profile already exists')
-                    // Fetch existing profile
+                    // Profile already exists (duplicate key) — just fetch and continue
                     const { data: existingProfile } = await supabase
                         .from('profiles')
                         .select('*')
                         .eq('user_id', user.id)
-                        .single()
-
+                        .maybeSingle()
                     if (existingProfile) {
                         setProfile(existingProfile)
                         navigate('/grid', { replace: true })
                     }
                 } else if (error.code === '42501') {
-                    toast.error('Permission denied. Please contact support.')
-                    console.error('RLS policy blocking insert!')
+                    toast.error('Permission denied — please sign out and try again.')
+                    console.error('RLS policy is blocking INSERT on profiles table!')
                 } else {
-                    toast.error(`Failed to create profile: ${error.message || 'Unknown error'}`)
+                    toast.error(`Failed: ${error.message || error.code || 'Unknown error'}`)
                 }
                 return
             }
@@ -108,9 +105,9 @@ export default function ProfileSetupPage() {
             navigate('/grid', { replace: true })
 
         } catch (error: any) {
-            console.error('Error creating profile:', error)
-            if (error.message?.includes('timeout')) {
-                toast.error('Request timed out. Please check your internet connection and try again.')
+            console.error('Profile submit error:', error)
+            if (error.message === 'timeout') {
+                toast.error('Request timed out — check your internet and try again.')
             } else {
                 toast.error(`Something went wrong: ${error.message || 'Please try again'}`)
             }
