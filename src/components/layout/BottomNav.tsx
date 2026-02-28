@@ -35,7 +35,7 @@ export default function BottomNav() {
                             >
                                 <div className="relative">
                                     <Icon className="w-6 h-6" />
-                                    {item.badge && item.badge > 0 && (
+                                    {!!item.badge && item.badge > 0 && (
                                         <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full text-xs font-bold text-white flex items-center justify-center">
                                             {item.badge > 9 ? '9+' : item.badge}
                                         </span>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useParams } from 'react-router-dom'
 import { Skull, Shield, Users, QrCode, Copy, Check, RefreshCw, Play, Monitor } from 'lucide-react'
@@ -44,7 +44,7 @@ function getComponentForPlayer(playerIndex: number, architectureId: 1 | 2) {
 export default function HuntSimplePage() {
     const { sessionId } = useParams<{ sessionId: string }>()
     const { profile } = useAuthStore()
-    const userId = profile?.user_id  // stable reference, no getUser() needed per-poll
+    const userId = profile?.user_id
 
     const [session, setSession] = useState<Session | null>(null)
     const [players, setPlayers] = useState<Player[]>([])
@@ -54,35 +54,99 @@ export default function HuntSimplePage() {
     const [myCard, setMyCard] = useState<{ isImposter: boolean; component?: any } | null>(null)
     const [gameStarted, setGameStarted] = useState(false)
 
+    // Ref to hold latest session/players without triggering subscription re-setup
+    const sessionRef = useRef<Session | null>(null)
+    const playersRef = useRef<Player[]>([])
+
     const isOrganizer = session?.organizer_id === userId
     const joinUrl = `${window.location.origin}/hunt/simple/${sessionId}`
 
+    // ── Compute the current player's role card from players + session ──────────
+    const computeMyCard = useCallback((playersList: Player[], currentSession: Session | null) => {
+        if (!currentSession || currentSession.status !== 'active' || !userId) return
+        const me = playersList.find(p => p.player_id === userId)
+        if (!me) return
+        if (me.is_imposter) {
+            setMyCard({ isImposter: true })
+        } else {
+            const crewPlayers = playersList.filter(p => !p.is_imposter)
+            const myCrewIndex = crewPlayers.findIndex(p => p.player_id === userId)
+            const component = getComponentForPlayer(myCrewIndex, currentSession.architecture_id)
+            setMyCard({ isImposter: false, component })
+        }
+    }, [userId])
+
+    // ── Lightweight: only re-fetch players list (called by realtime events) ────
+    const fetchPlayersOnly = useCallback(async () => {
+        if (!sessionId) return
+        try {
+            const { data: playersData, error: pErr } = await supabase
+                .from('hunt_players')
+                .select('*, profile:player_id(full_name, linkedin_url)')
+                .eq('session_id', sessionId)
+                .order('joined_at', { ascending: true })
+            if (pErr) throw pErr
+            const list = playersData || []
+            setPlayers(list)
+            playersRef.current = list
+            // If already active (e.g., player joined late), compute card immediately
+            if (sessionRef.current?.status === 'active') {
+                computeMyCard(list, sessionRef.current)
+            }
+        } catch (err: any) {
+            console.error('Error fetching players:', err?.code, err?.message, err)
+        }
+    }, [sessionId, computeMyCard])
+
+    // ── Full initial load: session + auto-join + players + card ───────────────
     const fetchData = useCallback(async () => {
-        if (!sessionId || !userId) return
+        if (!sessionId) return
+
+        // userId from profile store — but on QR-scan the profile might not be
+        // loaded yet. Fall back to auth.getUser() to get the real user id.
+        let resolvedUserId = userId
+        if (!resolvedUserId) {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                console.warn('HuntSimplePage: no authenticated user, skipping fetch')
+                setLoading(false)
+                return
+            }
+            resolvedUserId = user.id
+        }
+
         try {
             const { data: sessionData, error: sErr } = await supabase
                 .from('hunt_sessions')
                 .select('*')
                 .eq('id', sessionId)
                 .single()
-            if (sErr) throw sErr
+            if (sErr) {
+                console.error('Session fetch error:', sErr.code, sErr.message)
+                throw sErr
+            }
             setSession(sessionData)
+            sessionRef.current = sessionData
 
             // Auto-join: if player not in session yet, add them (QR scan flow)
             const { data: existingPlayer } = await supabase
                 .from('hunt_players')
                 .select('id')
                 .eq('session_id', sessionId)
-                .eq('player_id', userId)
+                .eq('player_id', resolvedUserId)
                 .single()
 
-            if (!existingPlayer && sessionData?.organizer_id !== userId && sessionData?.status === 'lobby') {
-                await supabase.from('hunt_players').insert({
+            if (!existingPlayer && sessionData?.organizer_id !== resolvedUserId && sessionData?.status === 'lobby') {
+                const { error: joinErr } = await supabase.from('hunt_players').insert({
                     session_id: sessionId,
-                    player_id: userId,
+                    player_id: resolvedUserId,
                     is_organizer: false,
                     is_imposter: false,
                 })
+                if (joinErr) {
+                    console.error('Auto-join insert error:', joinErr.code, joinErr.message, joinErr.details)
+                    // Don't throw — still show the session even if join fails
+                }
             }
 
             const { data: playersData, error: pErr } = await supabase
@@ -90,45 +154,97 @@ export default function HuntSimplePage() {
                 .select('*, profile:player_id(full_name, linkedin_url)')
                 .eq('session_id', sessionId)
                 .order('joined_at', { ascending: true })
-            if (pErr) throw pErr
-            setPlayers(playersData || [])
+            if (pErr) {
+                console.error('Players fetch error:', pErr.code, pErr.message)
+                throw pErr
+            }
+            const list = playersData || []
+            setPlayers(list)
+            playersRef.current = list
 
-            // If game is active, compute my card (only once — stop re-computing if already set)
             if (sessionData?.status === 'active') {
                 setGameStarted(true)
-                setMyCard(prev => {
-                    if (prev) return prev  // already resolved, don't flicker
-                    const me = (playersData || []).find((p: Player) => p.player_id === userId)
-                    if (!me) return prev
-                    if (me.is_imposter) return { isImposter: true }
-                    const crewPlayers = (playersData || []).filter((p: Player) => !p.is_imposter)
-                    const myCrewIndex = crewPlayers.findIndex((p: Player) => p.player_id === userId)
-                    const component = getComponentForPlayer(myCrewIndex, sessionData.architecture_id)
-                    return { isImposter: false, component }
-                })
+                computeMyCard(list, sessionData)
             }
-        } catch (err) {
-            console.error('Error fetching data:', err)
+        } catch (err: any) {
+            console.error('Error fetching data:', err?.code, err?.message, err)
         } finally {
             setLoading(false)
         }
-    }, [sessionId, userId])
+    }, [sessionId, userId, computeMyCard])
 
-    // Poll every 2 seconds for live player list + game start
+    // ── Initial load + set up real-time subscriptions ─────────────────────────
     useEffect(() => {
+        if (!sessionId || !userId) return
+
         fetchData()
-        const interval = setInterval(fetchData, 2000)
-        return () => clearInterval(interval)
-    }, [fetchData])
+
+        // Channel 1: hunt_players — fires instantly when anyone joins/leaves/is updated
+        const playersChannel = supabase
+            .channel(`simple-players-${sessionId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'hunt_players',
+                    filter: `session_id=eq.${sessionId}`,
+                },
+                () => {
+                    // Re-fetch the full player list with profile joins
+                    fetchPlayersOnly()
+                }
+            )
+            .subscribe()
+
+        // Channel 2: hunt_sessions — fires instantly when organizer starts the game
+        const sessionChannel = supabase
+            .channel(`simple-session-${sessionId}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'hunt_sessions',
+                    filter: `id=eq.${sessionId}`,
+                },
+                (payload) => {
+                    const updated = payload.new as Session
+                    setSession(updated)
+                    sessionRef.current = updated
+                    if (updated.status === 'active') {
+                        setGameStarted(true)
+                        // Compute role card with the latest player list
+                        computeMyCard(playersRef.current, updated)
+                        // Also re-fetch players in case there's any lag
+                        fetchPlayersOnly()
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(playersChannel)
+            supabase.removeChannel(sessionChannel)
+        }
+    }, [sessionId, userId, fetchData, fetchPlayersOnly, computeMyCard])
 
     const toggleImposter = async (player: Player) => {
         if (!isOrganizer || gameStarted) return
         const newVal = !player.is_imposter
-        await supabase
+        // Optimistic update immediately
+        setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_imposter: newVal } : p))
+        const { error } = await supabase
             .from('hunt_players')
             .update({ is_imposter: newVal })
             .eq('id', player.id)
-        setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_imposter: newVal } : p))
+        if (error) {
+            // Revert on failure
+            setPlayers(prev => prev.map(p => p.id === player.id ? { ...p, is_imposter: !newVal } : p))
+            toast.error('Failed to update role')
+        }
+        // Note: the realtime subscription will also fire — we let it re-fetch
+        // to keep the list perfectly in sync with DB
     }
 
     const handleStartGame = async () => {
@@ -142,7 +258,7 @@ export default function HuntSimplePage() {
             if (error) throw error
             toast.success('Game started! Players can see their cards now.')
             setGameStarted(true)
-            fetchData()
+            // Session realtime will fire for everyone else — no need to call fetchData
         } catch (err) {
             console.error('Error starting game:', err)
             toast.error('Failed to start game')
@@ -312,6 +428,11 @@ export default function HuntSimplePage() {
                     <div className="flex items-center gap-2 mb-4">
                         <QrCode className="w-5 h-5 text-stellar-purple" />
                         <h3 className="font-semibold text-star-white">Players Join Here</h3>
+                        {/* Live indicator */}
+                        <span className="ml-auto flex items-center gap-1.5 text-xs text-green-400 font-medium">
+                            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                            Live
+                        </span>
                     </div>
                     <div className="flex gap-4 items-center">
                         {/* QR Code */}
@@ -368,9 +489,11 @@ export default function HuntSimplePage() {
                             <Users className="w-5 h-5 text-stellar-purple" />
                             Players ({players.length})
                         </h3>
+                        {/* Manual refresh fallback */}
                         <button
-                            onClick={fetchData}
+                            onClick={fetchPlayersOnly}
                             className="p-2 rounded-lg bg-stellar-purple/20 hover:bg-stellar-purple/30 transition-colors"
+                            title="Manually refresh player list"
                         >
                             <RefreshCw className="w-4 h-4 text-stellar-purple" />
                         </button>
@@ -382,55 +505,59 @@ export default function HuntSimplePage() {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {players.map((player, index) => {
-                                const initials = player.profile?.full_name
-                                    ?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '??'
-                                const isMe = player.player_id === profile?.user_id
+                            <AnimatePresence mode="popLayout">
+                                {players.map((player, index) => {
+                                    const initials = player.profile?.full_name
+                                        ?.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() || '??'
+                                    const isMe = player.player_id === profile?.user_id
 
-                                return (
-                                    <motion.button
-                                        key={player.id}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: index * 0.03 }}
-                                        onClick={() => !gameStarted && toggleImposter(player)}
-                                        disabled={gameStarted || player.is_organizer}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${player.is_imposter
-                                            ? 'bg-red-900/30 border-red-500 hover:bg-red-900/40'
-                                            : 'bg-cosmic-blue/20 border-stellar-purple/30 hover:border-stellar-purple/60 hover:bg-cosmic-blue/30'
-                                            } ${gameStarted || player.is_organizer ? 'cursor-default' : 'cursor-pointer'}`}
-                                    >
-                                        {/* Avatar */}
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm border-2 ${player.is_imposter
-                                            ? 'bg-red-500/30 border-red-500 text-red-400'
-                                            : 'bg-stellar-purple/20 border-stellar-purple text-stellar-purple'
-                                            }`}>
-                                            {player.is_imposter ? '💀' : initials}
-                                        </div>
-                                        {/* Name */}
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-star-white font-medium truncate">
-                                                {player.profile?.full_name || 'Unknown'}
-                                                {isMe && <span className="text-moon-gray text-xs ml-2">(You)</span>}
-                                            </p>
-                                            {player.is_organizer && (
-                                                <p className="text-xs text-stellar-purple">Organizer</p>
+                                    return (
+                                        <motion.button
+                                            key={player.id}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20, scale: 0.95 }}
+                                            transition={{ delay: index * 0.03 }}
+                                            layout
+                                            onClick={() => !gameStarted && toggleImposter(player)}
+                                            disabled={gameStarted || player.is_organizer}
+                                            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${player.is_imposter
+                                                ? 'bg-red-900/30 border-red-500 hover:bg-red-900/40'
+                                                : 'bg-cosmic-blue/20 border-stellar-purple/30 hover:border-stellar-purple/60 hover:bg-cosmic-blue/30'
+                                                } ${gameStarted || player.is_organizer ? 'cursor-default' : 'cursor-pointer'}`}
+                                        >
+                                            {/* Avatar */}
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm border-2 ${player.is_imposter
+                                                ? 'bg-red-500/30 border-red-500 text-red-400'
+                                                : 'bg-stellar-purple/20 border-stellar-purple text-stellar-purple'
+                                                }`}>
+                                                {player.is_imposter ? '💀' : initials}
+                                            </div>
+                                            {/* Name */}
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-star-white font-medium truncate">
+                                                    {player.profile?.full_name || 'Unknown'}
+                                                    {isMe && <span className="text-moon-gray text-xs ml-2">(You)</span>}
+                                                </p>
+                                                {player.is_organizer && (
+                                                    <p className="text-xs text-stellar-purple">Organizer</p>
+                                                )}
+                                            </div>
+                                            {/* Role badge */}
+                                            {player.is_imposter && (
+                                                <span className="text-xs font-bold text-red-400 bg-red-900/40 border border-red-500/50 px-2 py-1 rounded flex-shrink-0">
+                                                    IMPOSTER
+                                                </span>
                                             )}
-                                        </div>
-                                        {/* Role badge */}
-                                        {player.is_imposter && (
-                                            <span className="text-xs font-bold text-red-400 bg-red-900/40 border border-red-500/50 px-2 py-1 rounded flex-shrink-0">
-                                                IMPOSTER
-                                            </span>
-                                        )}
-                                        {!player.is_organizer && !gameStarted && (
-                                            <span className="text-xs text-moon-gray/40 flex-shrink-0">
-                                                {player.is_imposter ? 'tap to remove' : 'tap to assign'}
-                                            </span>
-                                        )}
-                                    </motion.button>
-                                )
-                            })}
+                                            {!player.is_organizer && !gameStarted && (
+                                                <span className="text-xs text-moon-gray/40 flex-shrink-0">
+                                                    {player.is_imposter ? 'tap to remove' : 'tap to assign'}
+                                                </span>
+                                            )}
+                                        </motion.button>
+                                    )
+                                })}
+                            </AnimatePresence>
                         </div>
                     )}
                 </motion.div>
