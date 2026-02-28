@@ -47,14 +47,16 @@ export default function ProfileSetupPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        if (!validateForm() || !user) return
+        if (!validateForm()) return
+
+        if (!user) {
+            toast.error('Session not ready yet — please wait a moment and try again.')
+            return
+        }
 
         setIsSubmitting(true)
 
         try {
-            // Refresh session first — ensures we have a fresh JWT for RLS
-            await supabase.auth.refreshSession()
-
             const connectionCode = generateConnectionCode(user.id)
 
             console.log('Creating profile for user:', user.id)
@@ -124,6 +126,18 @@ export default function ProfileSetupPage() {
             .join('')
             .toUpperCase()
             .slice(0, 2)
+    }
+
+    if (!user) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-space-navy">
+                <div className="starfield fixed inset-0 -z-10" />
+                <div className="text-center">
+                    <Loader2 className="w-10 h-10 text-stellar-purple animate-spin mx-auto mb-3" />
+                    <p className="text-moon-gray">Loading your session...</p>
+                </div>
+            </div>
+        )
     }
 
     return (
