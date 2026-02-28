@@ -10,7 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.38.0",
+    "@supabase/gotrue-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.98.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
